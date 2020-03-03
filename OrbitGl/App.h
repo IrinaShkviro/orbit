@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <queue>
 #include <string>
@@ -252,6 +253,7 @@ class OrbitApp : public CoreApp {
   Mutex m_SamplingCallstackMutex;
   std::vector<CallstackEvent> m_HashedSamplingCallstackBuffer;
   Mutex m_HashedSamplingCallstackMutex;
+  std::unordered_map<uint64_t, Function> m_AdditionalFunctions;
 
   std::wstring m_User;
   std::wstring m_License;

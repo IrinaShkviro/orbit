@@ -9,6 +9,10 @@
 
 #define SCOPE_TIMER_LOG(msg) LocalScopeTimer UNIQUE_ID(msg)
 #define SCOPE_TIMER_FUNC SCOPE_TIMER_LOG(__FUNCTION__)
+
+#define SCOPE_TIMER_INTROSPECTION(msg) IntrospectionTimer UNIQUE_ID(msg)
+#define SCOPE_TIMER_INTROSPECTION_FUNC SCOPE_TIMER_INTROSPECTION(__FUNCTION__)
+
 extern thread_local size_t CurrentDepth;
 
 //-----------------------------------------------------------------------------
@@ -60,6 +64,7 @@ class Timer {
     UNREAL_OBJECT,
     ZONE,
     ALLOC,
+    INTROSPECTION,
     FREE
   };
 
@@ -116,6 +121,17 @@ class LocalScopeTimer {
  protected:
   Timer timer_;
   double* millis_;
+  std::string message_;
+};
+
+//-----------------------------------------------------------------------------
+class IntrospectionTimer {
+ public:
+  IntrospectionTimer(const std::string& message);
+  ~IntrospectionTimer();
+
+ protected:
+  Timer timer_;
   std::string message_;
 };
 

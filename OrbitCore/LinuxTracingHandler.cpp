@@ -129,7 +129,7 @@ void LinuxTracingHandler::OnFunctionEnd(
       }
 
       timer.m_End = function_end.GetTimestampNs();
-      core_app_->ProcessTimer(timer, std::to_string(timer.m_FunctionAddress));
+      core_app_->ProcessTimer(timer, "");
     }
   }
 }

@@ -78,6 +78,7 @@ class Function {
     FREE,
     REALLOC,
     ORBIT_DATA,
+    ORBIT_SPECIAL,
     NUM_TYPES
   };
 

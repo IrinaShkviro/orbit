@@ -46,6 +46,7 @@ namespace LinuxUtils {
 
 //-----------------------------------------------------------------------------
 std::vector<std::string> ListModules(pid_t a_PID) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   std::vector<std::string> modules;
   // TODO: we should read the file directly instead or memory map it.
   std::string result =

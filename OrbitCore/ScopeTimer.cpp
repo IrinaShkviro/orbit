@@ -4,12 +4,14 @@
 
 #include "ScopeTimer.h"
 
+#include "CoreApp.h"
 #include "Log.h"
 #include "TimerManager.h"
 #include "absl/strings/str_format.h"
 
 thread_local size_t CurrentDepth = 0;
 thread_local size_t CurrentDepthLocal = 0;
+thread_local size_t IntrospectionDepth = 0;
 
 void Timer::Start() {
   m_TID = GetCurrentThreadId();
@@ -40,8 +42,7 @@ LocalScopeTimer::LocalScopeTimer(const std::string& message)
   for (size_t i = 0; i < CurrentDepthLocal; ++i) {
     tabs += "  ";
   }
-  PRINT(
-      absl::StrFormat("%sStarting %s...\n", tabs.c_str(), message_.c_str()));
+  PRINT(absl::StrFormat("%sStarting %s...\n", tabs.c_str(), message_.c_str()));
 
   ++CurrentDepthLocal;
   timer_.Start();
@@ -61,8 +62,8 @@ LocalScopeTimer::~LocalScopeTimer() {
       tabs += "  ";
     }
 
-    PRINT(absl::StrFormat("%s%s took %f ms.\n", tabs.c_str(),
-                          message_.c_str(), timer_.ElapsedMillis()));
+    PRINT(absl::StrFormat("%s%s took %f ms.\n", tabs.c_str(), message_.c_str(),
+                          timer_.ElapsedMillis()));
   }
 }
 
@@ -75,4 +76,21 @@ ConditionalScopeTimer::~ConditionalScopeTimer() {
   if (m_Active) {
     m_Timer.Stop();
   }
+}
+
+IntrospectionTimer::IntrospectionTimer(const std::string& message)
+    : message_(message) {
+  ++IntrospectionDepth;
+  timer_.Start();
+}
+
+IntrospectionTimer::~IntrospectionTimer() {
+  timer_.Stop();
+  --IntrospectionDepth;
+
+  timer_.m_TID = GetCurrentThreadId();
+  timer_.m_Type = Timer::INTROSPECTION;
+  timer_.m_Depth = CurrentDepthLocal;
+  timer_.m_FunctionAddress = StringHash(message_);
+  GCoreApp->ProcessTimer(timer_, message_);
 }

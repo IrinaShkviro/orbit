@@ -188,6 +188,7 @@ void OrbitApp::StopRemoteCaptureBufferingThread() {
 void OrbitApp::ProcessBufferedCaptureData() {
   while (Capture::IsCapturing()) {
     OrbitSleepMs(20);
+    SCOPE_TIMER_INTROSPECTION_FUNC;
 
     // timers:
     {
@@ -248,6 +249,34 @@ void OrbitApp::ProcessTimer(const Timer& a_Timer,
     GCurrentTimeGraph->ProcessTimer(a_Timer);
     ++Capture::GFunctionCountMap[a_Timer.m_FunctionAddress];
   }
+}
+
+//-----------------------------------------------------------------------------
+void OrbitApp::ProcessTimer(const Timer& a_Timer,
+                            const std::string& a_FunctionName) {
+  PRINT_FUNC;
+  if (ConnectionManager::Get().IsService()) {
+    PRINT("ConnectionManager::Get().IsService()\n");
+    ScopeLock lock(m_TimerMutex);
+    m_TimerBuffer.push_back(a_Timer);
+  } else {
+    GCurrentTimeGraph->ProcessTimer(a_Timer);
+    ++Capture::GFunctionCountMap[a_Timer.m_FunctionAddress];
+  }
+
+  if (!a_FunctionName.empty()) {
+    if (m_AdditionalFunctions.find(a_Timer.m_FunctionAddress) ==
+        m_AdditionalFunctions.end()) {
+          Function func;
+          func.SetAddress(a_Timer.m_FunctionAddress);
+          func.SetName(a_FunctionName);
+          func.SetPrettyName(a_FunctionName);
+          func.SetOrbitType(Function::ORBIT_SPECIAL);
+          m_AdditionalFunctions[a_Timer.m_FunctionAddress] = func;
+    }
+  }
+
+  PRINT_VAR(m_TimerBuffer.size());
 }
 
 //-----------------------------------------------------------------------------
@@ -657,7 +686,7 @@ Timer GMainTimer;
 
 //-----------------------------------------------------------------------------
 void OrbitApp::MainTick() {
-  TRACE_VAR(GMainTimer.QueryMillis());
+  SCOPE_TIMER_INTROSPECTION_FUNC;
 
   if (GTcpServer) GTcpServer->ProcessMainThreadCallbacks();
   if (GTcpClient) GTcpClient->ProcessMainThreadCallbacks();

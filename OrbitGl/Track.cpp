@@ -22,17 +22,17 @@ Track::Track() {
   m_Picked = false;
   m_Moving = false;
   m_Canvas = nullptr;
+
+  static volatile unsigned char alpha = 255;
+  static volatile unsigned char grey = 60;
+  m_Color = Color(grey, grey, grey, alpha);
 }
 
 //-----------------------------------------------------------------------------
 void Track::Draw(GlCanvas* a_Canvas, bool a_Picking) {
-  static volatile unsigned char alpha = 255;
-  static volatile unsigned char grey = 60;
-  auto col = Color(grey, grey, grey, alpha);
   a_Picking ? PickingManager::SetPickingColor(
                   a_Canvas->GetPickingManager().CreatePickableId(this))
-            : glColor4ubv(&col[0]);
-
+            : glColor4ubv(&m_Color[0]);
   float x0 = m_Pos[0];
   float x1 = x0 + m_Size[0];
 
@@ -53,7 +53,7 @@ void Track::Draw(GlCanvas* a_Canvas, bool a_Picking) {
   if (a_Canvas->GetPickingManager().GetPicked() == this)
     glColor4ub(255, 255, 255, 255);
   else
-    glColor4ubv(&col[0]);
+    glColor4ubv(&m_Color[0]);
 
   glBegin(GL_LINES);
   glVertex3f(x0, y0, TRACK_Z);

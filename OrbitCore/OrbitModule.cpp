@@ -8,6 +8,7 @@
 
 #include "Core.h"
 #include "Pdb.h"
+#include "ScopeTimer.h"
 #include "Serialization.h"
 #include "absl/strings/str_format.h"
 
@@ -19,7 +20,6 @@
 #include "OrbitUnreal.h"
 #include "Params.h"
 #include "Path.h"
-#include "ScopeTimer.h"
 #endif
 
 //-----------------------------------------------------------------------------
@@ -156,6 +156,7 @@ std::unique_ptr<ElfFile> FindSymbols(const std::string& module_path) {
 }
 
 bool Pdb::LoadFunctions(const char* file_name) {
+  SCOPE_TIMER_INTROSPECTION(absl::StrFormat("Load functions [%s]", file_name));
   m_LoadedModuleName = file_name;
   std::unique_ptr<ElfFile> elf_file = FindSymbols(file_name);
   m_FileName = elf_file->GetFilePath();

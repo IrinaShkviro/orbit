@@ -1,4 +1,5 @@
 #include "UprobesUnwindingVisitor.h"
+#include "ScopeTimer.h"
 
 namespace LinuxTracing {
 
@@ -7,6 +8,7 @@ UprobesCallstackManager::JoinCallstackWithPreviousUprobesCallstacks(
     const std::vector<unwindstack::FrameData>& this_callstack,
     const std::vector<std::vector<unwindstack::FrameData>>&
         previous_callstacks) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   if (this_callstack.empty()) {
     // This callstack is an unwinding failure.
     return {};
@@ -43,6 +45,7 @@ UprobesCallstackManager::JoinCallstackWithPreviousUprobesCallstacks(
 std::vector<unwindstack::FrameData>
 UprobesCallstackManager::ProcessUprobesCallstack(
     pid_t tid, const std::vector<unwindstack::FrameData>& callstack) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   std::vector<std::vector<unwindstack::FrameData>>& previous_callstacks =
       tid_uprobes_callstacks_stacks_[tid];
   const std::vector<unwindstack::FrameData>& full_callstack =
@@ -72,6 +75,7 @@ UprobesCallstackManager::ProcessUprobesCallstack(
 std::vector<unwindstack::FrameData>
 UprobesCallstackManager::ProcessSampledCallstack(
     pid_t tid, const std::vector<unwindstack::FrameData>& callstack) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   const std::vector<std::vector<unwindstack::FrameData>>& previous_callstacks =
       tid_uprobes_callstacks_stacks_[tid];
   const std::vector<unwindstack::FrameData>& full_callstack =
@@ -83,6 +87,7 @@ UprobesCallstackManager::ProcessSampledCallstack(
 std::vector<unwindstack::FrameData>
 UprobesCallstackManager::ProcessUretprobesCallstack(
     pid_t tid, const std::vector<unwindstack::FrameData>& callstack) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   std::vector<std::vector<unwindstack::FrameData>>& previous_callstacks =
       tid_uprobes_callstacks_stacks_[tid];
   if (!previous_callstacks.empty()) {
@@ -101,6 +106,7 @@ UprobesCallstackManager::ProcessUretprobesCallstack(
 }
 
 void UprobesUnwindingVisitor::visit(StackSamplePerfEvent* event) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   const std::vector<unwindstack::FrameData>& callstack = unwinder_.Unwind(
       event->Registers(), event->StackDump(), event->StackSize());
   const std::vector<unwindstack::FrameData>& full_callstack =
@@ -116,6 +122,7 @@ void UprobesUnwindingVisitor::visit(StackSamplePerfEvent* event) {
 }
 
 void UprobesUnwindingVisitor::visit(UprobePerfEventWithStack* event) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   FunctionBegin function_begin{
       event->TID(), event->GetFunction()->VirtualAddress(), event->Timestamp()};
   if (listener_ != nullptr) {
@@ -141,6 +148,7 @@ void UprobesUnwindingVisitor::visit(UprobePerfEventWithStack* event) {
 }
 
 void UprobesUnwindingVisitor::visit(UretprobePerfEventWithStack* event) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   FunctionEnd function_end{event->TID(), event->GetFunction()->VirtualAddress(),
                            event->Timestamp()};
   if (listener_ != nullptr) {

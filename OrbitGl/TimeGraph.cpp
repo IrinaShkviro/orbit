@@ -235,8 +235,12 @@ void TimeGraph::ProcessTimer(const Timer& a_Timer) {
 
   if (!a_Timer.IsType(Timer::THREAD_ACTIVITY) &&
       !a_Timer.IsType(Timer::CORE_ACTIVITY)) {
-    GetThreadTrack(a_Timer.m_TID)->OnTimer(a_Timer);
+    std::shared_ptr<ThreadTrack> track = GetThreadTrack(a_Timer.m_TID);
+    track->OnTimer(a_Timer);
     ++m_ThreadCountMap[a_Timer.m_TID];
+    if( a_Timer.m_Type == Timer::INTROSPECTION ) {
+      track->SetColor(Color(87, 166, 74, 255));
+    }
   } else {
     // Use thead 0 as container for scheduling events.
     GetThreadTrack(0)->OnTimer(a_Timer);
