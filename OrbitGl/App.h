@@ -15,6 +15,7 @@
 #include "../OrbitCore/Message.h"
 #include "DataViewTypes.h"
 #include "Threading.h"
+#include "OrbitFunction.h"
 
 struct CallStack;
 struct ContextSwitch;
@@ -83,6 +84,8 @@ class OrbitApp : public CoreApp {
   virtual void AddSymbol(uint64_t a_Address, const std::string& a_Module,
                          const std::string& a_Name);
   void ProcessBufferedCaptureData();
+  void SendAdditionalFunctions();
+  void ReceiveAdditionalFunctions(const Message& a_Message);
 
   int* GetScreenRes() { return m_ScreenRes; }
 

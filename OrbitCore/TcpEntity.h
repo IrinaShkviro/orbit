@@ -12,6 +12,7 @@
 #include "Message.h"
 #include "TcpForward.h"
 #include "Threading.h"
+#include "Serialization.h"
 #include "Utils.h"
 
 //-----------------------------------------------------------------------------
@@ -75,6 +76,11 @@ class TcpEntity {
   template <class T>
   void Send(MessageType a_Type, const T& a_Item);
   inline void Send(MessageType a_Type, const std::string& a_Item);
+
+  template <class T>
+  inline void SendBinary(MessageType a_Type, const T& a_Item);
+  template <class T>
+  void ReceiveBinary(const Message& a_Msg, T& a_Content);
 
   typedef std::function<void(const Message&)> MsgCallback;
   void AddCallback(MessageType a_MsgType, MsgCallback a_Callback) {
@@ -196,6 +202,21 @@ template <class T>
 void TcpEntity::Send(MessageType a_Type, const T& a_Item) {
   Message msg(a_Type);
   Send(msg, a_Item);
+}
+
+//-----------------------------------------------------------------------------
+template <class T>
+void TcpEntity::SendBinary(MessageType a_Type, const T& a_Content) {
+  std::string data = SerializeObjectBinary(a_Content);
+  Send(Msg_AdditionalFunctions, (void*)data.data(), data.size());
+}
+
+//-----------------------------------------------------------------------------
+template <class T>
+void TcpEntity::ReceiveBinary(const Message& a_Msg, T& a_Content) {
+  std::istringstream buffer(std::string(a_Msg.m_Data, a_Msg.m_Size));
+  cereal::BinaryInputArchive inputAr(buffer);
+  inputAr(a_Content);
 }
 
 //-----------------------------------------------------------------------------

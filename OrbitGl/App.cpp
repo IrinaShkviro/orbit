@@ -120,6 +120,10 @@ void OrbitApp::SetCommandLineArguments(const std::vector<std::string>& a_Args) {
           Msg_RemoteModuleDebugInfo, [=](const Message& a_Msg) {
             GOrbitApp->OnRemoteModuleDebugInfo(a_Msg);
           });
+      GTcpClient->AddMainThreadCallback(Msg_AdditionalFunctions,
+                                    [this](const Message& a_Msg) {
+          ReceiveAdditionalFunctions(a_Msg);
+      });
       ConnectionManager::Get().ConnectToRemote(address);
       m_ProcessesDataView->SetIsRemote(true);
       SetIsRemote(true);
@@ -182,6 +186,33 @@ void OrbitApp::StopRemoteCaptureBufferingThread() {
     m_MessageBufferThread->join();
     m_MessageBufferThread = nullptr;
   }
+
+  SendAdditionalFunctions();
+}
+
+//-----------------------------------------------------------------------------
+void OrbitApp::SendAdditionalFunctions() {
+  GTcpServer->SendBinary(Msg_AdditionalFunctions, m_AdditionalFunctions);
+}
+
+//-----------------------------------------------------------------------------
+void OrbitApp::ReceiveAdditionalFunctions(const Message& a_Message) {
+  const std::string moduleName = "OrbitService";
+  std::shared_ptr<Module> module = Capture::GTargetProcess->GetModuleFromName(moduleName);
+  if (module == nullptr) {
+    module = std::make_shared<Module>();
+    module->m_FullName = moduleName;
+    module->m_Name = moduleName;
+    module->m_FoundPdb = true;
+    Capture::GTargetProcess->AddModule(module);
+  }
+
+  std::unordered_map<uint64_t, Function> functions;
+  GTcpServer->ReceiveBinary(a_Message, functions);
+
+  for( auto& pair : functions ) {
+    module->m_Pdb->AddFunction(pair.second);
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -242,21 +273,8 @@ void OrbitApp::ProcessBufferedCaptureData() {
 //-----------------------------------------------------------------------------
 void OrbitApp::ProcessTimer(const Timer& a_Timer,
                             const std::string& a_FunctionName) {
-  if (ConnectionManager::Get().IsService()) {
-    ScopeLock lock(m_TimerMutex);
-    m_TimerBuffer.push_back(a_Timer);
-  } else {
-    GCurrentTimeGraph->ProcessTimer(a_Timer);
-    ++Capture::GFunctionCountMap[a_Timer.m_FunctionAddress];
-  }
-}
-
-//-----------------------------------------------------------------------------
-void OrbitApp::ProcessTimer(const Timer& a_Timer,
-                            const std::string& a_FunctionName) {
   PRINT_FUNC;
   if (ConnectionManager::Get().IsService()) {
-    PRINT("ConnectionManager::Get().IsService()\n");
     ScopeLock lock(m_TimerMutex);
     m_TimerBuffer.push_back(a_Timer);
   } else {
