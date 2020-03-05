@@ -17,14 +17,20 @@
 #include "Callstack.h"
 #include "Capture.h"
 #include "CaptureSerializer.h"
+#ifndef NOGL
 #include "CaptureWindow.h"
+#endif
 #include "ConnectionManager.h"
 #include "Debugger.h"
 #include "DiaManager.h"
 #include "FunctionDataView.h"
+#ifndef NOGL
 #include "GlCanvas.h"
+#endif
 #include "GlobalDataView.h"
+#ifndef NOGL
 #include "ImGuiOrbit.h"
+#endif
 #include "Injection.h"
 #include "LinuxCallstackEvent.h"
 #include "LiveFunctionDataView.h"
@@ -40,7 +46,9 @@
 #include "PluginManager.h"
 #include "PrintVar.h"
 #include "ProcessDataView.h"
+#ifndef NOGL
 #include "RuleEditor.h"
+#endif
 #include "SamplingProfiler.h"
 #include "SamplingReport.h"
 #include "ScopeTimer.h"
@@ -51,15 +59,19 @@
 #include "TcpClient.h"
 #include "TcpServer.h"
 #include "TestRemoteMessages.h"
+#ifndef NOGL
 #include "TextRenderer.h"
+#endif
 #include "TimerManager.h"
 #include "TypeDataView.h"
 #include "Utils.h"
 #include "Version.h"
 #include "curl/curl.h"
 
+#ifndef NOGL
 #define GLUT_DISABLE_ATEXIT_HACK
 #include "GL/freeglut.h"
+#endif
 
 #ifdef _WIN32
 #include "Disassembler.h"
@@ -278,7 +290,9 @@ void OrbitApp::ProcessTimer(const Timer& a_Timer,
     ScopeLock lock(m_TimerMutex);
     m_TimerBuffer.push_back(a_Timer);
   } else {
+#ifndef NOGL
     GCurrentTimeGraph->ProcessTimer(a_Timer);
+#endif
     ++Capture::GFunctionCountMap[a_Timer.m_FunctionAddress];
   }
 
@@ -376,7 +390,9 @@ void OrbitApp::AddSymbol(uint64_t a_Address, const std::string& a_Module,
 void OrbitApp::LoadSystrace(const std::string& a_FileName) {
   SystraceManager::Get().Clear();
   Capture::ClearCaptureData();
+#ifndef NOGL
   GCurrentTimeGraph->Clear();
+#endif
   if (Capture::GClearCaptureDataFunc) {
     Capture::GClearCaptureDataFunc();
   }
@@ -390,7 +406,9 @@ void OrbitApp::LoadSystrace(const std::string& a_FileName) {
   Capture::GVisibleFunctionsMap = Capture::GSelectedFunctionsMap;
 
   for (const auto& timer : systrace->GetTimers()) {
+#ifndef NOGL
     GCurrentTimeGraph->ProcessTimer(timer);
+#endif
     ++Capture::GFunctionCountMap[timer.m_FunctionAddress];
   }
 
@@ -416,7 +434,9 @@ void OrbitApp::AppendSystrace(const std::string& a_FileName,
   Capture::GVisibleFunctionsMap = Capture::GSelectedFunctionsMap;
 
   for (const auto& timer : systrace->GetTimers()) {
+#ifndef NOGL
     GCurrentTimeGraph->ProcessTimer(timer);
+#endif
     Capture::GFunctionCountMap[timer.m_FunctionAddress];
   }
 
@@ -489,10 +509,12 @@ void OrbitApp::PostInit() {
   }
 
   if (!GOrbitApp->GetHeadless()) {
+#ifndef NOGL
     int my_argc = 0;
     glutInit(&my_argc, NULL);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     GetDesktopResolution(GOrbitApp->m_ScreenRes[0], GOrbitApp->m_ScreenRes[1]);
+#endif
   } else {
     ConnectionManager::Get().InitAsService();
   }
@@ -676,7 +698,11 @@ void OrbitApp::Disassemble(const std::string& a_FunctionName,
 //-----------------------------------------------------------------------------
 const std::unordered_map<DWORD64, std::shared_ptr<class Rule> >*
 OrbitApp::GetRules() {
+#ifndef NOGL
   return &m_RuleEditor->GetRules();
+#else
+  return nullptr;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -695,7 +721,9 @@ int OrbitApp::OnExit() {
   }
   delete GTcpServer;
   delete GOrbitApp;
+#ifndef NOGL
   Orbit_ImGui_Shutdown();
+#endif
   return 0;
 }
 
@@ -736,9 +764,11 @@ void OrbitApp::MainTick() {
   ++GOrbitApp->m_NumTicks;
 
   if (DoZoom) {
+#ifndef NOGL
     GCurrentTimeGraph->UpdateThreadIds();
     GOrbitApp->m_CaptureWindow->ZoomAll();
     GOrbitApp->NeedsRedraw();
+#endif
     DoZoom = false;
   }
 }
@@ -821,12 +851,18 @@ void OrbitApp::RegisterOutputLog(LogDataView* a_Log) {
 
 //-----------------------------------------------------------------------------
 void OrbitApp::RegisterRuleEditor(RuleEditor* a_RuleEditor) {
+#ifndef NOGL
   assert(m_RuleEditor == nullptr);
   m_RuleEditor = a_RuleEditor;
+#endif
 }
 
 //-----------------------------------------------------------------------------
-void OrbitApp::NeedsRedraw() { m_CaptureWindow->NeedsUpdate(); }
+void OrbitApp::NeedsRedraw() {
+#ifndef NOGL
+  m_CaptureWindow->NeedsUpdate();
+#endif
+}
 
 //-----------------------------------------------------------------------------
 void OrbitApp::AddSamplingReport(
@@ -852,8 +888,10 @@ void OrbitApp::AddSelectionReport(
 
 //-----------------------------------------------------------------------------
 void OrbitApp::GoToCode(DWORD64 a_Address) {
+#ifndef NOGL
   m_CaptureWindow->FindCode(a_Address);
   SendToUiNow(L"gotocode");
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -977,13 +1015,16 @@ void OrbitApp::OnLoadSession(const std::string& file_name) {
 
 //-----------------------------------------------------------------------------
 void OrbitApp::OnSaveCapture(const std::string& file_name) {
+#ifndef NOGL
   CaptureSerializer ar;
   ar.m_TimeGraph = GCurrentTimeGraph;
   ar.Save(s2ws(file_name));
+#endif
 }
 
 //-----------------------------------------------------------------------------
 void OrbitApp::OnLoadCapture(const std::string& file_name) {
+#ifndef NOGL
   StopCapture();
   Capture::ClearCaptureData();
   GCurrentTimeGraph->Clear();
@@ -997,6 +1038,7 @@ void OrbitApp::OnLoadCapture(const std::string& file_name) {
   m_ModulesDataView->SetProcess(Capture::GTargetProcess);
   StopCapture();
   DoZoom = true;  // TODO: remove global, review logic
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1277,6 +1319,7 @@ void OrbitApp::OnRemoteModuleDebugInfo(const Message& a_Message) {
 
     if (module) {
       module->LoadDebugInfo();  // To allocate m_Pdb - TODO: clean that up
+      module->m_Pdb->SetLoadBias(moduleInfo.load_bias);
 
       for (auto& function : moduleInfo.m_Functions) {
         // Add function to pdb
@@ -1293,6 +1336,8 @@ void OrbitApp::OnRemoteModuleDebugInfo(const Message& a_Message) {
 
 //-----------------------------------------------------------------------------
 void OrbitApp::LaunchRuleEditor(Function* a_Function) {
+#ifndef NOGL
   m_RuleEditor->m_Window.Launch(a_Function);
   SendToUiNow(TEXT("RuleEditor"));
+#endif
 }
