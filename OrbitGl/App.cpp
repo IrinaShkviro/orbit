@@ -204,11 +204,14 @@ void OrbitApp::StopRemoteCaptureBufferingThread() {
 
 //-----------------------------------------------------------------------------
 void OrbitApp::SendAdditionalFunctions() {
+  PRINT_FUNC;
+  PRINT_VAR(m_AdditionalFunctions.size());
   GTcpServer->SendBinary(Msg_AdditionalFunctions, m_AdditionalFunctions);
 }
 
 //-----------------------------------------------------------------------------
 void OrbitApp::ReceiveAdditionalFunctions(const Message& a_Message) {
+  PRINT_FUNC;
   const std::string moduleName = "OrbitService";
   std::shared_ptr<Module> module = Capture::GTargetProcess->GetModuleFromName(moduleName);
   if (module == nullptr) {
@@ -221,9 +224,18 @@ void OrbitApp::ReceiveAdditionalFunctions(const Message& a_Message) {
 
   std::unordered_map<uint64_t, Function> functions;
   GTcpServer->ReceiveBinary(a_Message, functions);
+  TRACE_VAR(functions.size());
 
   for( auto& pair : functions ) {
+    Function& function = pair.second;
+    PRINT_VAR(function.Name());
+    PRINT_VAR(function.PrettyName());
+    PRINT_VAR(function.GetModuleName());
     module->m_Pdb->AddFunction(pair.second);
+
+    m_AdditionalFunctions[function.Address()] = function;
+    Capture::GSelectedFunctionsMap[function.Address()] = &m_AdditionalFunctions[function.Address()];
+    Capture::GVisibleFunctionsMap = Capture::GSelectedFunctionsMap;
   }
 }
 
@@ -285,7 +297,6 @@ void OrbitApp::ProcessBufferedCaptureData() {
 //-----------------------------------------------------------------------------
 void OrbitApp::ProcessTimer(const Timer& a_Timer,
                             const std::string& a_FunctionName) {
-  PRINT_FUNC;
   if (ConnectionManager::Get().IsService()) {
     ScopeLock lock(m_TimerMutex);
     m_TimerBuffer.push_back(a_Timer);
@@ -307,8 +318,6 @@ void OrbitApp::ProcessTimer(const Timer& a_Timer,
           m_AdditionalFunctions[a_Timer.m_FunctionAddress] = func;
     }
   }
-
-  PRINT_VAR(m_TimerBuffer.size());
 }
 
 //-----------------------------------------------------------------------------

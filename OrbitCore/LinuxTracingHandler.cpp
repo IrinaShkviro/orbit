@@ -69,6 +69,7 @@ void LinuxTracingHandler::OnContextSwitchOut(
 
 void LinuxTracingHandler::OnCallstack(
     const LinuxTracing::Callstack& callstack) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   CallStack cs;
   cs.m_ThreadId = callstack.GetTid();
 
@@ -103,6 +104,7 @@ void LinuxTracingHandler::OnCallstack(
 
 void LinuxTracingHandler::OnFunctionBegin(
     const LinuxTracing::FunctionBegin& function_begin) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   auto& tid_timer_stack = tid_timer_stacks_[function_begin.GetTid()];
   Timer timer;
   timer.m_TID = function_begin.GetTid();
@@ -114,6 +116,7 @@ void LinuxTracingHandler::OnFunctionBegin(
 
 void LinuxTracingHandler::OnFunctionEnd(
     const LinuxTracing::FunctionEnd& function_end) {
+  SCOPE_TIMER_INTROSPECTION_FUNC;
   if (tid_timer_stacks_.count(function_end.GetTid()) > 0) {
     auto& timer_stack = tid_timer_stacks_.at(function_end.GetTid());
 

@@ -34,7 +34,7 @@ class PerfEventProcessor {
   // events coming out of order as they are read from different perf_event_open
   // ring buffers and this ensure that all events are processed in the correct
   // order.
-  static constexpr uint64_t PROCESSING_DELAY_MS = 100;
+  static constexpr uint64_t PROCESSING_DELAY_MS = 1000;
 
   explicit PerfEventProcessor(std::unique_ptr<PerfEventVisitor> visitor)
       : visitor_(std::move(visitor)) {}
@@ -59,9 +59,7 @@ class PerfEventProcessor {
 
   std::unique_ptr<PerfEventVisitor> visitor_;
 
-#ifndef NDEBUG
   uint64_t last_processed_timestamp_ = 0;
-#endif
 };
 
 }  // namespace LinuxTracing

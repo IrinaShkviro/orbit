@@ -36,7 +36,7 @@ for profile in ${profiles[@]}; do
     conan_profile_exists "$profile" || create_conan_profile "$profile"
   fi
 
-  conan install -u -pr $profile -if build_$profile/ --build outdated $DIR || exit $?
+  #conan install -u -pr $profile -if build_$profile/ --build outdated $DIR || exit $?
   conan build -bf build_$profile/ $DIR || exit $?
   conan package -bf build_$profile/ $DIR || exit $?
 done

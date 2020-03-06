@@ -13,6 +13,8 @@
 
 namespace LinuxTracing {
 
+struct TracerThreadData;
+
 class TracerThread {
  public:
   TracerThread(pid_t pid, uint64_t sampling_period_ns,
@@ -41,6 +43,7 @@ class TracerThread {
   }
 
   void Run(const std::shared_ptr<std::atomic<bool>>& exit_requested);
+  void RunStats(const std::shared_ptr<std::atomic<bool>>& exit_requested);
 
  private:
   // Number of records to read consecutively from a perf_event_open ring buffer
@@ -56,6 +59,7 @@ class TracerThread {
   bool trace_context_switches_ = true;
   bool trace_callstacks_ = true;
   bool trace_instrumented_functions_ = true;
+  std::shared_ptr<TracerThreadData> data_;
 };
 
 }  // namespace LinuxTracing

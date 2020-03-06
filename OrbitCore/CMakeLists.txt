@@ -198,28 +198,28 @@ target_compile_definitions(OrbitCore PUBLIC _UNICODE)
 
 target_compile_features(OrbitCore PUBLIC cxx_std_11)
 
-add_executable(OrbitCoreTests)
+#add_executable(OrbitCoreTests)
 
-target_sources(OrbitCoreTests
-  PRIVATE RingBufferTest.cpp)
+# target_sources(OrbitCoreTests
+#   PRIVATE RingBufferTest.cpp)
 
-if(NOT WIN32)
-  # TODO: Enable ElfFileTests.cpp for all platforms once we have llvm support on Windows.
-  target_sources(OrbitCoreTests
-    PRIVATE ElfFileTests.cpp
-            OrbitModuleTest.cpp)
-  target_link_libraries(OrbitCoreTests PRIVATE  ${llvm_libs})
-endif()
+# if(NOT WIN32)
+#   # TODO: Enable ElfFileTests.cpp for all platforms once we have llvm support on Windows.
+#   target_sources(OrbitCoreTests
+#     PRIVATE ElfFileTests.cpp
+#             OrbitModuleTest.cpp)
+#   target_link_libraries(OrbitCoreTests PRIVATE  ${llvm_libs})
+# endif()
 
-target_link_libraries(
-  OrbitCoreTests
-  PRIVATE OrbitCore
-          GTest::Main
-          llvm_object::llvm_object
-          abseil::abseil)
+# target_link_libraries(
+#   OrbitCoreTests
+#   PRIVATE OrbitCore
+#           GTest::Main
+#           llvm_object::llvm_object
+#           abseil::abseil)
 
-add_custom_command(TARGET OrbitCoreTests POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/testdata
-  $<TARGET_FILE_DIR:OrbitCoreTests>/testdata)
+# add_custom_command(TARGET OrbitCoreTests POST_BUILD
+#   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/testdata
+#   $<TARGET_FILE_DIR:OrbitCoreTests>/testdata)
 
-add_test(NAME OrbitCore COMMAND OrbitCoreTests)
+#add_test(NAME OrbitCore COMMAND OrbitCoreTests)

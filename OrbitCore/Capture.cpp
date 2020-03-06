@@ -340,6 +340,8 @@ void Capture::SendFunctionHooks() {
 
   // Send all hooks by type
   for (int i = 0; i < Function::NUM_TYPES; ++i) {
+    if( i == Function::ORBIT_SPECIAL )
+      continue;
     std::vector<DWORD64>& addresses = GSelectedAddressesByType[i];
     if (addresses.size()) {
       MessageType msgType = GetMessageType((Function::OrbitType)i);

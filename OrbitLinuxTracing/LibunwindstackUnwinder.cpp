@@ -3,6 +3,7 @@
 #include <array>
 
 #include "Logging.h"
+#include "ScopeTimer.h"
 
 namespace LinuxTracing {
 
@@ -30,6 +31,7 @@ const std::array<size_t, unwindstack::X86_64_REG_LAST>
 std::vector<unwindstack::FrameData> LibunwindstackUnwinder::Unwind(
     const std::array<uint64_t, PERF_REG_X86_64_MAX>& perf_regs,
     const char* stack_dump, uint64_t stack_dump_size) {
+  SCOPE_TIMER_INTROSPECTION("LibunwindstackUnwinder::Unwind");
   if (!maps_) {
     ERROR("LibunwindstackUnwinder::Unwind: maps not set");
     return {};

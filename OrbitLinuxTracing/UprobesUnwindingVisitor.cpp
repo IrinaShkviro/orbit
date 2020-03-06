@@ -3,6 +3,17 @@
 
 namespace LinuxTracing {
 
+void UprobesUnwindingVisitor::RegisterTimeStamp(pid_t thread_id, uint64_t ts) {
+  uint64_t latest = latest_timestamp_per_thread_[thread_id];
+  if( ts < latest )
+  {
+    std::cout << "=== EVENT OUT OF ORDRE ===\n";
+  }
+
+  latest_timestamp_per_thread_[thread_id] = ts;
+}
+
+
 std::vector<unwindstack::FrameData>
 UprobesCallstackManager::JoinCallstackWithPreviousUprobesCallstacks(
     const std::vector<unwindstack::FrameData>& this_callstack,
@@ -53,6 +64,7 @@ UprobesCallstackManager::ProcessUprobesCallstack(
                                                  previous_callstacks);
 
   if (!callstack.empty()) {
+    SCOPE_TIMER_INTROSPECTION("!callstack.empty()");
     std::vector<unwindstack::FrameData> uprobes_callstack{};
     // Start from 1 to remove the instrumented function's entry.
     for (size_t i = 1; i < callstack.size(); ++i) {
@@ -62,9 +74,13 @@ UprobesCallstackManager::ProcessUprobesCallstack(
       // Remove the [uprobes] entry from the bottom.
       uprobes_callstack.pop_back();
     }
-    previous_callstacks.push_back(std::move(uprobes_callstack));
+    {
+      SCOPE_TIMER_INTROSPECTION("previous_callstacks.push_back");
+      previous_callstacks.push_back(std::move(uprobes_callstack));
+    }
 
   } else {
+    SCOPE_TIMER_INTROSPECTION("stack error");
     // Put a placeholder indicating an error on the stack.
     previous_callstacks.emplace_back();
   }
@@ -123,6 +139,7 @@ void UprobesUnwindingVisitor::visit(StackSamplePerfEvent* event) {
 
 void UprobesUnwindingVisitor::visit(UprobePerfEventWithStack* event) {
   SCOPE_TIMER_INTROSPECTION_FUNC;
+  RegisterTimeStamp(event->TID(), event->Timestamp());
   FunctionBegin function_begin{
       event->TID(), event->GetFunction()->VirtualAddress(), event->Timestamp()};
   if (listener_ != nullptr) {
@@ -149,6 +166,7 @@ void UprobesUnwindingVisitor::visit(UprobePerfEventWithStack* event) {
 
 void UprobesUnwindingVisitor::visit(UretprobePerfEventWithStack* event) {
   SCOPE_TIMER_INTROSPECTION_FUNC;
+  RegisterTimeStamp(event->TID(), event->Timestamp());
   FunctionEnd function_end{event->TID(), event->GetFunction()->VirtualAddress(),
                            event->Timestamp()};
   if (listener_ != nullptr) {

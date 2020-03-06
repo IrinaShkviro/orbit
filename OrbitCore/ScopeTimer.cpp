@@ -5,6 +5,7 @@
 #include "ScopeTimer.h"
 
 #include "CoreApp.h"
+#include "ConnectionManager.h"
 #include "Log.h"
 #include "TimerManager.h"
 #include "absl/strings/str_format.h"
@@ -88,9 +89,11 @@ IntrospectionTimer::~IntrospectionTimer() {
   timer_.Stop();
   --IntrospectionDepth;
 
-  timer_.m_TID = GetCurrentThreadId();
-  timer_.m_Type = Timer::INTROSPECTION;
-  timer_.m_Depth = CurrentDepthLocal;
-  timer_.m_FunctionAddress = StringHash(message_);
-  GCoreApp->ProcessTimer(timer_, message_);
+  if(ConnectionManager::Get().IsService()) {
+    timer_.m_TID = GetCurrentThreadId();
+    timer_.m_Type = Timer::INTROSPECTION;
+    timer_.m_Depth = IntrospectionDepth;
+    timer_.m_FunctionAddress = StringHash(message_);
+    GCoreApp->ProcessTimer(timer_, message_);
+  }
 }
