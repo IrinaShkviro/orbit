@@ -13,6 +13,8 @@
 #define NO_INLINE __declspec(noinline)
 #endif
 
+#define PRINT_VAR(x) std::cout << #x << " = " << x << std::endl
+
 //-----------------------------------------------------------------------------
 uint64_t GetThreadID() {
   std::stringstream ss;
@@ -37,10 +39,6 @@ OrbitTest::OrbitTest(uint32_t num_threads, uint32_t recurse_depth,
 //-----------------------------------------------------------------------------
 OrbitTest::~OrbitTest() {
   m_ExitRequested = true;
-
-  for (uint32_t i = 0; i < num_threads_; ++i) {
-    m_Threads[i]->join();
-  }
 }
 
 //-----------------------------------------------------------------------------
@@ -48,9 +46,14 @@ void OrbitTest::Start() {
   std::cout << "Starting OrbitTest num_threads: " << num_threads_
             << " recurse_depth: " << recurse_depth_
             << " sleep_us: " << sleep_us_ << std::endl;
+
   for (uint32_t i = 0; i < num_threads_; ++i) {
     auto thread = std::make_shared<std::thread>(&OrbitTest::Loop, this);
     m_Threads.push_back(thread);
+  }
+
+  for (uint32_t i = 0; i < num_threads_; ++i) {
+    m_Threads[i]->join();
   }
 }
 

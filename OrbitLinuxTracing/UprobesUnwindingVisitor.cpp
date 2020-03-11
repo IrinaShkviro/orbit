@@ -1,4 +1,5 @@
 #include "UprobesUnwindingVisitor.h"
+#include <iostream>
 
 namespace LinuxTracing {
 
@@ -120,6 +121,16 @@ void UprobesCallstackManager::ProcessUretprobes(pid_t tid) {
   }
 }
 
+void UprobesUnwindingVisitor::RegisterTimeStamp(pid_t thread_id, uint64_t ts) {
+  uint64_t latest = latest_timestamp_per_thread_[thread_id];
+  if( ts < latest )
+  {
+    std::cout << "=== EVENT OUT OF ORDRE ===\n";
+  }
+
+  latest_timestamp_per_thread_[thread_id] = ts;
+}
+
 void UprobesUnwindingVisitor::visit(StackSamplePerfEvent* event) {
   const std::vector<unwindstack::FrameData>& callstack = unwinder_.Unwind(
       event->GetRegisters(), event->GetStackData(), event->GetStackSize());
@@ -135,6 +146,7 @@ void UprobesUnwindingVisitor::visit(StackSamplePerfEvent* event) {
 }
 
 void UprobesUnwindingVisitor::visit(UprobesWithStackPerfEvent* event) {
+  RegisterTimeStamp(event->GetTid(), event->GetTimestamp());
   function_call_manager_.ProcessUprobes(event->GetTid(),
                                         event->GetFunction()->VirtualAddress(),
                                         event->GetTimestamp());
@@ -157,6 +169,7 @@ void UprobesUnwindingVisitor::visit(UprobesWithStackPerfEvent* event) {
 }
 
 void UprobesUnwindingVisitor::visit(UretprobesPerfEvent* event) {
+  RegisterTimeStamp(event->GetTid(), event->GetTimestamp());
   std::optional<FunctionCall> function_call =
       function_call_manager_.ProcessUretprobes(event->GetTid(),
                                                event->GetTimestamp());

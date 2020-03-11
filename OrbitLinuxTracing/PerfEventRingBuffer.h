@@ -4,6 +4,7 @@
 #include <linux/perf_event.h>
 
 #include <cassert>
+#include <mutex>
 
 #include "PerfEventOpen.h"
 
@@ -27,12 +28,14 @@ class PerfEventRingBuffer {
   void ReadHeader(perf_event_header* header);
   void SkipRecord(const perf_event_header& header);
   void ConsumeRecord(const perf_event_header& header, void* record);
+  void SetDebug() { debug_ = true; }
 
  private:
   uint64_t mmap_length_ = 0;
   perf_event_mmap_page* metadata_page_ = nullptr;
   char* ring_buffer_ = nullptr;
   uint64_t ring_buffer_size_ = 0;
+  bool debug_ = false;
   // The buffer length needs to be a power of 2, hence we can use shifting for
   // division.
   uint32_t ring_buffer_size_log2_ = 0;
@@ -41,6 +44,8 @@ class PerfEventRingBuffer {
   void ReadAtTail(uint8_t* dest, uint64_t count);
   void ReadAtOffsetFromTail(uint8_t* dest, uint64_t offset_from_tail,
                             uint64_t count);
+
+  std::mutex mutex_;
 };
 
 }  // namespace LinuxTracing

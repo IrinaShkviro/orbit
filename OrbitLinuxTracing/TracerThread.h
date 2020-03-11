@@ -76,7 +76,7 @@ class TracerThread {
 
   // Number of records to read consecutively from a perf_event_open ring buffer
   // before switching to another one.
-  static constexpr int32_t ROUND_ROBIN_POLLING_BATCH_SIZE = 5;
+  static constexpr int32_t ROUND_ROBIN_POLLING_BATCH_SIZE = 64;
   static constexpr uint64_t SMALL_RING_BUFFER_SIZE_KB = 256;
   static constexpr uint64_t BIG_RING_BUFFER_SIZE_KB = 2048;
   static constexpr uint32_t IDLE_TIME_ON_EMPTY_RING_BUFFERS_US = 1000;
@@ -111,6 +111,8 @@ class TracerThread {
     uint64_t sched_switch_count = 0;
     uint64_t sample_count = 0;
     uint64_t uprobes_count = 0;
+    uint64_t uretprobes_count = 0;
+    uint64_t lost_events = 0;
   };
 
   EventStats stats_;

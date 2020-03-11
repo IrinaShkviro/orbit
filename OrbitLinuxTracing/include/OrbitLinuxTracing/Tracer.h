@@ -17,7 +17,7 @@ namespace LinuxTracing {
 
 class Tracer {
  public:
-  static constexpr double DEFAULT_SAMPLING_FREQUENCY = 1000.0;
+  static constexpr double DEFAULT_SAMPLING_FREQUENCY = 99.0;
 
   Tracer(pid_t pid, double sampling_frequency,
          std::vector<Function> instrumented_functions);

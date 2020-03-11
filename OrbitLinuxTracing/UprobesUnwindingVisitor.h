@@ -110,6 +110,7 @@ class UprobesUnwindingVisitor : public PerfEventVisitor {
   void visit(MapsPerfEvent* event) override;
 
  private:
+  void RegisterTimeStamp(pid_t thread_id, uint64_t ts);
   UprobesFunctionCallManager function_call_manager_{};
   LibunwindstackUnwinder unwinder_{};
   UprobesCallstackManager callstack_manager_{};
@@ -118,6 +119,8 @@ class UprobesUnwindingVisitor : public PerfEventVisitor {
 
   static std::vector<CallstackFrame> CallstackFramesFromLibunwindstackFrames(
       const std::vector<unwindstack::FrameData>& libunwindstack_frames);
+
+  absl::flat_hash_map<pid_t, uint64_t> latest_timestamp_per_thread_{};
 };
 
 }  // namespace LinuxTracing

@@ -3,6 +3,10 @@
 #include "Logging.h"
 #include "UprobesUnwindingVisitor.h"
 
+#include <iostream>
+
+#define PRINT_VAR(x) std::cout << #x << " = " << x << std::endl
+
 namespace {
 // Unlike std::make_unique, calls new without parentheses, causing the object
 // to be default-initialized instead of value-initialized.
@@ -29,6 +33,7 @@ void TracerThread::Run(
   // perf_event_open refers to cores as "CPUs".
   int32_t num_cpus = GetNumCores();
 
+  //trace_context_switches_ = false;
   if (trace_context_switches_) {
     // Record context switches from all cores for all processes.
     for (int32_t cpu = 0; cpu < num_cpus; cpu++) {
@@ -58,6 +63,7 @@ void TracerThread::Run(
             function.BinaryPath().c_str(), function.FileOffset(), -1, cpu);
         PerfEventRingBuffer uprobe_ring_buffer{uprobe_fd,
                                                BIG_RING_BUFFER_SIZE_KB};
+        uprobe_ring_buffer.SetDebug();
         if (uprobe_ring_buffer.IsOpen()) {
           fds_to_ring_buffer_.emplace(uprobe_fd, std::move(uprobe_ring_buffer));
           uprobe_fds_to_function_.emplace(uprobe_fd, &function);
@@ -186,10 +192,10 @@ void TracerThread::Run(
             ring_buffer.SkipRecord(header);
             break;
         }
-
-        // Periodically print event statistics.
-        PrintStatsIfTimerElapsed();
       }
+
+      // Periodically print event statistics.
+      //PrintStatsIfTimerElapsed();
     }
 
     // Add new ring buffers.
@@ -330,7 +336,7 @@ void TracerThread::ProcessSampleEvent(const perf_event_header& header,
     event->SetFunction(uprobe_fds_to_function_.at(fd));
     event->SetOriginFileDescriptor(fd);
     DeferEvent(std::move(event));
-    ++stats_.uprobes_count;
+    ++stats_.uretprobes_count;
   } else {
     auto event = make_unique_for_overwrite<StackSamplePerfEvent>();
     ring_buffer->ConsumeRecord(header, &event->ring_buffer_record);
@@ -345,6 +351,7 @@ void TracerThread::ProcessLostEvent(const perf_event_header& header,
   LostPerfEvent event;
   ring_buffer->ConsumeRecord(header, &event.ring_buffer_record);
   LOG("Lost %lu events", event.GetNumLost());
+  ++stats_.lost_events;
 }
 
 void TracerThread::DeferEvent(std::unique_ptr<PerfEvent> event) {
@@ -394,18 +401,15 @@ void TracerThread::Reset() {
 }
 
 void TracerThread::PrintStatsIfTimerElapsed() {
-  constexpr uint64_t EVENT_COUNT_WINDOW_S = 5;
+  constexpr uint64_t EVENT_COUNT_WINDOW_S = 1;
 
   if (stats_.event_count_begin_ns + EVENT_COUNT_WINDOW_S * 1'000'000'000 <
       MonotonicTimestampNs()) {
-    LOG("Events per second (last %lu s): "
-        "sched switches: %lu; "
-        "samples: %lu; "
-        "u(ret)probes: %lu",
-        EVENT_COUNT_WINDOW_S, stats_.sched_switch_count / EVENT_COUNT_WINDOW_S,
-        stats_.sample_count / EVENT_COUNT_WINDOW_S,
-        stats_.uprobes_count / EVENT_COUNT_WINDOW_S);
-    stats_.Reset();
+      PRINT_VAR(stats_.uprobes_count);
+      PRINT_VAR(stats_.uretprobes_count);
+      PRINT_VAR(stats_.lost_events);
+    //stats_.Reset();
+    stats_.event_count_begin_ns = MonotonicTimestampNs();
   }
 }
 

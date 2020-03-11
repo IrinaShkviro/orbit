@@ -6,9 +6,45 @@
 #include <cassert>
 #include <cstring>
 #include <utility>
+#include <iostream>
 
 #include "Logging.h"
 #include "PerfEventOpen.h"
+
+#define READ_ONCE(x)		(*(volatile typeof(x) *)&x)
+#define WRITE_ONCE(x, v)	(*(volatile typeof(x) *)&x) = (v)
+
+#define barrier()		asm volatile("" ::: "memory")
+
+#if defined(__x86_64__)
+
+# define smp_rmb()		barrier()
+# define smp_wmb()		barrier()
+# define smp_mb()		asm volatile("lock; addl $0,-132(%%rsp)" ::: "memory", "cc")
+
+# define smp_store_release(p, v)		\
+do {						\
+	barrier();				\
+	WRITE_ONCE(*p, v);			\
+} while (0)
+
+# define smp_load_acquire(p)			\
+({						\
+	typeof(*p) ___p = READ_ONCE(*p);	\
+	barrier();				\
+	___p;					\
+})
+
+#endif
+
+static inline uint64_t ReadRingBufferHead(perf_event_mmap_page *base) {
+  return smp_load_acquire(&base->data_head);
+}
+
+static inline void WriteRingBufferTail(struct perf_event_mmap_page *base,
+					  uint64_t tail) {
+	smp_store_release(&base->data_tail, tail);
+}
 
 namespace LinuxTracing {
 
@@ -78,23 +114,28 @@ PerfEventRingBuffer::~PerfEventRingBuffer() {
 
 bool PerfEventRingBuffer::HasNewData() {
   assert(IsOpen());
-  assert(metadata_page_->data_tail == metadata_page_->data_head ||
-         metadata_page_->data_head >=
-             metadata_page_->data_tail + sizeof(perf_event_header));
-  return metadata_page_->data_head > metadata_page_->data_tail;
+  uint64_t head = ReadRingBufferHead(metadata_page_);
+  assert((metadata_page_->data_tail == head) ||
+         (head >= metadata_page_->data_tail + sizeof(perf_event_header)));
+  return head > metadata_page_->data_tail;
 }
 
 void PerfEventRingBuffer::ReadHeader(perf_event_header* header) {
   assert(IsOpen());
   ReadAtTail(reinterpret_cast<uint8_t*>(header), sizeof(perf_event_header));
   assert(header->type != 0);
-  assert(metadata_page_->data_tail + header->size <= metadata_page_->data_head);
+  assert(metadata_page_->data_tail + header->size <=
+         ReadRingBufferHead(metadata_page_));
 }
 
 void PerfEventRingBuffer::SkipRecord(const perf_event_header& header) {
   assert(IsOpen());
+  std::lock_guard<std::mutex> lock(mutex_);
   // Write back how far we read from the buffer.
-  metadata_page_->data_tail += header.size;
+  uint64_t new_tail = metadata_page_->data_tail + header.size;
+  WriteRingBufferTail(metadata_page_, new_tail);
+  if( debug_ && (new_tail > ((uint64_t)ring_buffer_ + ring_buffer_size_)))
+    std::cout << "(new_tail > (ring_buffer_ + ring_buffer_size_))" << std::endl;
 }
 
 void PerfEventRingBuffer::ConsumeRecord(const perf_event_header& header,
@@ -111,13 +152,13 @@ void PerfEventRingBuffer::ReadAtTail(uint8_t* dest, uint64_t count) {
 void PerfEventRingBuffer::ReadAtOffsetFromTail(uint8_t* dest,
                                                uint64_t offset_from_tail,
                                                uint64_t count) {
-  if (offset_from_tail + count >
-      metadata_page_->data_head - metadata_page_->data_tail) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  uint64_t head = ReadRingBufferHead(metadata_page_);
+  if (offset_from_tail + count > head - metadata_page_->data_tail) {
     ERROR("Reading more data than it is available from the ring buffer");
   } else if (offset_from_tail + count > ring_buffer_size_) {
     ERROR("Reading more than the size of the ring buffer");
-  } else if (metadata_page_->data_head >
-             metadata_page_->data_tail + ring_buffer_size_) {
+  } else if (head > metadata_page_->data_tail + ring_buffer_size_) {
     // If mmap has been called with PROT_WRITE and
     // perf_event_mmap_page::data_tail is used properly, this should not happen,
     // as the kernel would not overwrite unread data.
@@ -145,6 +186,8 @@ void PerfEventRingBuffer::ReadAtOffsetFromTail(uint8_t* dest,
            ring_buffer_size_ - index_mod_size);
     memcpy(dest + (ring_buffer_size_ - index_mod_size), ring_buffer_,
            count - (ring_buffer_size_ - index_mod_size));
+    if( debug_ )
+      std::cout << "Ring buffer splitting copy on read" << std::endl;
   } else {
     assert(false);  // Control shouldn't reach here.
   }

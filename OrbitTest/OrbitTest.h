@@ -23,4 +23,5 @@ class OrbitTest {
   uint32_t num_threads_ = 10;
   uint32_t recurse_depth_ = 10;
   uint32_t sleep_us_ = 100'000;
+  uint32_t num_calls_per_thread_ = 10'000;
 };
