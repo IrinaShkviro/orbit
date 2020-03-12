@@ -121,6 +121,10 @@ class UprobesUnwindingVisitor : public PerfEventVisitor {
       const std::vector<unwindstack::FrameData>& libunwindstack_frames);
 
   absl::flat_hash_map<pid_t, uint64_t> latest_timestamp_per_thread_{};
+
+  absl::flat_hash_map<pid_t, std::vector<uint64_t>> uprobe_sp_per_thread_{};
+  absl::flat_hash_map<pid_t, UprobesWithStackPerfEvent> last_uprobe_event_per_thread_{};
+
 };
 
 }  // namespace LinuxTracing

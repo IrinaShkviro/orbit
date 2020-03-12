@@ -1,6 +1,8 @@
 #include "UprobesUnwindingVisitor.h"
 #include <iostream>
 
+#define PRINT_VAR(x) std::cout << #x << " = " << x << std::endl
+
 namespace LinuxTracing {
 
 void UprobesFunctionCallManager::ProcessUprobes(pid_t tid,
@@ -145,7 +147,39 @@ void UprobesUnwindingVisitor::visit(StackSamplePerfEvent* event) {
   }
 }
 
+void DumpEvent(UprobesWithStackPerfEvent& event)
+{
+  auto& r = event.ring_buffer_record;
+  std::cout << "--- event ---" << std::endl;
+  PRINT_VAR(r.header.misc);
+  PRINT_VAR(r.header.type);
+  PRINT_VAR(r.header.size);
+  PRINT_VAR(r.sample_id.pid);
+  PRINT_VAR(r.sample_id.tid);
+  PRINT_VAR(r.sample_id.time);
+  PRINT_VAR(r.sample_id.cpu);
+  PRINT_VAR(r.sample_id.res);
+}
+
 void UprobesUnwindingVisitor::visit(UprobesWithStackPerfEvent* event) {
+  // Duplicate uprobe detection.
+  uint64_t uprobe_sp = event->GetRegisters()[PERF_REG_X86_SP];
+  std::vector<uint64_t>& uprobe_sps = uprobe_sp_per_thread_[event->GetTid()];
+  if(!uprobe_sps.empty()) {
+    uint64_t last_uprobe_sp = uprobe_sps.back();
+    uprobe_sps.pop_back();
+
+    if( uprobe_sp >= last_uprobe_sp ) {
+      std::cout << "=== MISSED URETPROBE OR DUPLICATE UPROBE DETECTED ===\n";
+      UprobesWithStackPerfEvent last_event = last_uprobe_event_per_thread_[event->GetTid()];
+      DumpEvent(last_event);
+      DumpEvent(*event);
+      return;
+    }
+  }
+  uprobe_sps.push_back(uprobe_sp);
+  last_uprobe_event_per_thread_[event->GetTid()] = *event;
+
   RegisterTimeStamp(event->GetTid(), event->GetTimestamp());
   function_call_manager_.ProcessUprobes(event->GetTid(),
                                         event->GetFunction()->VirtualAddress(),
@@ -170,6 +204,12 @@ void UprobesUnwindingVisitor::visit(UprobesWithStackPerfEvent* event) {
 
 void UprobesUnwindingVisitor::visit(UretprobesPerfEvent* event) {
   RegisterTimeStamp(event->GetTid(), event->GetTimestamp());
+
+  std::vector<uint64_t>& uprobe_sps = uprobe_sp_per_thread_[event->GetTid()];
+  if(!uprobe_sps.empty()) {
+    uprobe_sps.pop_back();
+  }
+
   std::optional<FunctionCall> function_call =
       function_call_manager_.ProcessUretprobes(event->GetTid(),
                                                event->GetTimestamp());
