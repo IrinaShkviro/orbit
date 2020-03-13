@@ -120,6 +120,21 @@ class UprobesUnwindingVisitor : public PerfEventVisitor {
       const std::vector<unwindstack::FrameData>& libunwindstack_frames);
 
   absl::flat_hash_map<pid_t, std::vector<uint64_t>> uprobe_sps_per_thread_{};
+
+  struct EventInfo {
+    perf_event_header header;
+    perf_event_sample_id_tid_time_cpu sample;
+    uint64_t reg_sp;
+    uint64_t reg_ip;
+    uint32_t depth;
+    bool checked = false;
+  };
+  static void DumpEvent(const EventInfo& e);
+  static void DiffEvents(const EventInfo& e0, const EventInfo& e1);
+
+  absl::flat_hash_map<pid_t, std::vector<EventInfo>> event_infos_per_thread_{};
+  bool found_duplicate_ = false;
+  uint64_t uprobe_id_ = 0;
 };
 
 }  // namespace LinuxTracing

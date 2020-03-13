@@ -1,5 +1,9 @@
 #include "UprobesUnwindingVisitor.h"
 
+#include <iostream>
+
+#define PRINT_VAR(x) std::cout << #x << " = " << x << std::endl
+
 namespace LinuxTracing {
 
 void UprobesFunctionCallManager::ProcessUprobes(pid_t tid,
@@ -134,6 +138,50 @@ void UprobesUnwindingVisitor::visit(StackSamplePerfEvent* event) {
   }
 }
 
+void UprobesUnwindingVisitor::DumpEvent(const EventInfo& e) {
+  std::cout << "--- event ---" << std::endl;
+  PRINT_VAR(e.header.misc);
+  PRINT_VAR(e.header.type);
+  PRINT_VAR(e.header.size);
+  PRINT_VAR(e.sample.pid);
+  PRINT_VAR(e.sample.tid);
+  PRINT_VAR(e.sample.time);
+  PRINT_VAR(e.sample.cpu);
+  PRINT_VAR(e.sample.res);
+  PRINT_VAR(e.reg_sp);
+  PRINT_VAR(e.reg_ip);
+}
+
+void UprobesUnwindingVisitor::DiffEvents(const EventInfo& e0,
+                                         const EventInfo& e1) {
+  std::cout << "--- diff ---" << std::endl;
+  PRINT_VAR(e0.header.misc);
+  PRINT_VAR(e1.header.misc);
+  PRINT_VAR(e0.header.type);
+  PRINT_VAR(e1.header.type);
+  PRINT_VAR(e0.header.size);
+  PRINT_VAR(e1.header.size);
+  PRINT_VAR(e0.sample.pid);
+  PRINT_VAR(e1.sample.pid);
+  PRINT_VAR(e0.sample.tid);
+  PRINT_VAR(e1.sample.tid);
+  PRINT_VAR(e0.sample.time);
+  PRINT_VAR(e1.sample.time);
+  PRINT_VAR((e1.sample.time - e0.sample.time) / 1000);
+  PRINT_VAR(e0.sample.cpu);
+  PRINT_VAR(e1.sample.cpu);
+  PRINT_VAR(e0.sample.res);
+  PRINT_VAR(e1.sample.res);
+  PRINT_VAR(e0.reg_sp);
+  PRINT_VAR(e1.reg_sp);
+  PRINT_VAR(e0.reg_sp - e1.reg_sp);
+  PRINT_VAR(e1.reg_sp - e0.reg_sp);
+  PRINT_VAR(e0.reg_ip);
+  PRINT_VAR(e1.reg_ip);
+  PRINT_VAR(e0.reg_ip - e1.reg_ip);
+  PRINT_VAR(e1.reg_ip - e0.reg_ip);
+}
+
 void UprobesUnwindingVisitor::visit(UprobesWithStackPerfEvent* event) {
   // We are seeing that on thread migration, uprobe events can sometimes be
   // duplicated. The idea of the workaround is that for a given thread's
@@ -145,17 +193,42 @@ void UprobesUnwindingVisitor::visit(UprobesWithStackPerfEvent* event) {
   // In that situation, we discard the second uprobe event.
 
   // Duplicate uprobe detection.
+  ++uprobe_id_;
   uint64_t uprobe_sp = event->GetRegisters()[PERF_REG_X86_SP];
+  uint64_t uprobe_ip = event->GetRegisters()[PERF_REG_X86_IP];
+  EventInfo event_info;
+  event_info.header = event->ring_buffer_record.header;
+  event_info.sample = event->ring_buffer_record.sample_id;
+  event_info.reg_sp = uprobe_sp;
+  event_info.reg_ip = uprobe_ip;
+  std::vector<EventInfo>& event_infos =
+      event_infos_per_thread_[event->GetTid()];
+  event_info.depth = event_infos.size();
+
   std::vector<uint64_t>& uprobe_sps = uprobe_sps_per_thread_[event->GetTid()];
   if (!uprobe_sps.empty()) {
     uint64_t last_uprobe_sp = uprobe_sps.back();
     uprobe_sps.pop_back();
     if (uprobe_sp >= last_uprobe_sp) {
       ERROR("MISSING URETPROBE OR DUPLICATE UPROBE DETECTED");
+      PRINT_VAR(event_infos.size());
+      // DiffEvents(event_infos[0], event_info);
       return;
     }
   }
   uprobe_sps.push_back(uprobe_sp);
+
+  event_infos.push_back(event_info);
+  if (event_infos.size() > 1) {
+    EventInfo& last_event_info = event_infos[event_infos.size() - 2];
+    if (!last_event_info.checked &&
+        (event_info.depth > last_event_info.depth)) {
+      PRINT_VAR(event_infos.size());
+      PRINT_VAR(uprobe_id_);
+      DiffEvents(event_infos[0], event_infos[1]);
+      last_event_info.checked = true;
+    }
+  }
 
   function_call_manager_.ProcessUprobes(event->GetTid(),
                                         event->GetFunction()->VirtualAddress(),
@@ -183,6 +256,11 @@ void UprobesUnwindingVisitor::visit(UretprobesPerfEvent* event) {
   std::vector<uint64_t>& uprobe_sps = uprobe_sps_per_thread_[event->GetTid()];
   if (!uprobe_sps.empty()) {
     uprobe_sps.pop_back();
+  }
+  std::vector<EventInfo>& event_infos =
+      event_infos_per_thread_[event->GetTid()];
+  if (!event_infos.empty()) {
+    event_infos.pop_back();
   }
 
   std::optional<FunctionCall> function_call =
